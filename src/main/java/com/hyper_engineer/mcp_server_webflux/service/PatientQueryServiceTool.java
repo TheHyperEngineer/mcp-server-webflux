@@ -32,10 +32,11 @@ public class PatientQueryServiceTool {
     @Tool(
             name = "patient.byDiseaseCount",
             description = "Partition patients into single-disease vs multi-disease groups for segmentation and resource planning.")
-    public Mono<Map<String, Object>> getAllVideos() {
+    public Map<String, Object> getAllVideos() {
         return this.webClient.get()
                 .uri("/api/patients/by-disease-count")
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .block();
     }
 }
