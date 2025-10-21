@@ -1,0 +1,182 @@
+AI Agent Implementation Prompt
+Goal: Implement a production-ready Spring Boot WebFlux (reactive) microservice named patient-review-service from scratch that exactly implements the API surface, data model, reactive behavior, and schema described below. Produce a single, complete Maven project that compiles, passes unit/integration tests (if provided), and can be run locally with an R2DBC-compatible Postgres test database.
+Keep the implementation fully reactive (no blocking calls like block(), blockFirst(), blockLast(), or use of toFuture().get()). Use Project Reactor primitives (Flux, Mono) end-to-end in controllers, services, and repositories. Favor composition with flatMap, map, collectList, groupBy, reduce, buffer, flatMapMany, thenMany, and avoid converting reactive streams to synchronous collections except within test assertions using StepVerifier.
+Deliverables
+• 	Full Maven project (pom.xml) with Spring Boot, Spring WebFlux, Spring Data R2DBC, R2DBC Postgres driver, Lombok, JUnit 5, Reactor Test, Testcontainers for Postgres, and any necessary plugins.
+• 	Source files under package com.hyper_engineer.patient_review_service:
+• 	controller: all controllers with routes and signatures specified below
+• 	service: fully reactive service implementations matching controllers
+• 	repository: ReactiveCrudRepository interfaces
+• 	entity: R2DBC entities annotated for spring-data-r2dbc
+• 	dto (optional): request/response DTOs if helpful; ensure controllers return the same shapes specified below
+• 	util: DateTimeUtils if needed
+• 	config: R2DBC configuration and any WebFlux configuration
+• 	resources: application.yml, schema.sql, test resources
+• 	Integration tests using Testcontainers (Postgres) hitting several endpoints and validating shapes.
+• 	README with build/run/test instructions and example curl commands.
+Project structure (example)
+• 	pom.xml
+• 	src/main/java/com/hyper_engineer/patient_review_service/
+• 	controller/
+• 	service/
+• 	repository/
+• 	entity/
+• 	dto/
+• 	config/
+• 	util/
+• 	src/main/resources/
+• 	application.yml
+• 	schema.sql
+• 	src/test/java/... with integration tests
+Maven/Dependencies
+• 	Spring Boot 3.x compatible with Java 17+
+• 	spring-boot-starter-webflux
+• 	spring-boot-starter-data-r2dbc
+• 	r2dbc-postgresql
+• 	r2dbc-h2 (optional for fast local tests)
+• 	lombok
+• 	reactor-test
+• 	junit-jupiter
+• 	testcontainers-postgresql
+• 	jackson-databind (comes with spring-boot)
+• 	(optional) spring-boot-maven-plugin
+Database schema (exact) Include schema.sql file matching the following DDL exactly (use table/column names and types shown). Ensure schema.sql runs successfully on Postgres in Testcontainers.
+DROP TABLE IF EXISTS medical_tests; DROP TABLE IF EXISTS patient_diseases; DROP TABLE IF EXISTS patient_test_history; DROP TABLE IF EXISTS patients;
+CREATE TABLE medical_tests ( test_name VARCHAR(255) PRIMARY KEY, recommended_frequency_months INT NOT NULL );
+CREATE TABLE patients ( id UUID PRIMARY KEY, name VARCHAR(255) NOT NULL );
+CREATE TABLE patient_test_history ( id BIGSERIAL PRIMARY KEY, patient_id UUID NOT NULL, test_name VARCHAR(255) NOT NULL, test_date TIMESTAMP WITH TIME ZONE NOT NULL, FOREIGN KEY (patient_id) REFERENCES patients(id) );
+CREATE TABLE patient_diseases ( id BIGSERIAL PRIMARY KEY, patient_id UUID NOT NULL, disease VARCHAR(255) NOT NULL, FOREIGN KEY (patient_id) REFERENCES patients(id) );
+Entities (exact fields and mapping)
+• 	MedicalTestEntity
+• 	@Table("medical_tests")
+• 	@Id String testName
+• 	int recommendedFrequencyMonths
+• 	PatientEntity
+• 	@Table("patients")
+• 	@Id UUID id
+• 	String name
+• 	PatientTestHistoryEntity
+• 	@Table("patient_test_history")
+• 	@Id Long id
+• 	UUID patientId
+• 	String testName
+• 	Instant testDate
+• 	PatientDiseaseEntity
+• 	@Table("patient_diseases")
+• 	@Id Long id
+• 	UUID patientId
+• 	String disease
+Repositories (Reactive)
+• 	MedicalTestRepository extends ReactiveCrudRepository<MedicalTestEntity, String>
+• 	PatientRepository extends ReactiveCrudRepository<PatientEntity, UUID>
+• 	PatientTestHistoryRepository extends ReactiveCrudRepository<PatientTestHistoryEntity, Long>
+• 	PatientDiseaseRepository extends ReactiveCrudRepository<PatientDiseaseEntity, Long>
+Controllers (routes & return types) Implement controllers and routes exactly as these method signatures and routes:
+1. 	TestController
+• 	GET /api/test -> returns String
+2. 	PatientQueryController (/api/patients)
+• 	GET /{id}/tests/count -> Mono<Long>
+• 	GET /{id}/tests -> Flux<PatientTestHistoryEntity>
+• 	GET /{id}/profile -> Mono<Map<String,Object>> containing keys: "patient": PatientEntity, "diseases": List<PatientDiseaseEntity>, "history": List<PatientTestHistoryEntity>
+• 	GET /no-tests-since?since={ISO} -> Flux<PatientEntity>
+• 	GET /{id}/most-recent-test -> Mono<Map<String,Object>> { patientId, testName, testDate } or mostRecent null
+• 	GET /overdue-for-test?testName={}&asOf={ISO optional} -> Flux<Map<String,Object>> { patientId, patientName, lastTestDate, dueDate, overdue }
+• 	GET /by-disease-count -> Mono<Map<String, List<PatientEntity>>> { singleDisease, multiDisease }
+• 	GET /disease-test-mix?disease={}&tests=List<String> -> Flux<PatientEntity>
+• 	GET /coverage -> Mono<Map<String,Object>> { totalPatients, patientsWithAtLeastOneTest, percent }
+3. 	DiseaseQueryController (/api/diseases)
+• 	GET /{disease}/patients -> Flux<PatientEntity>
+• 	GET /distribution -> Mono<List<Map<String,Object>>> each map: disease, count, percentage
+• 	GET /{disease}/compliance?asOf={ISO optional} -> Mono<Map<String,Object>> { disease, requiredTests, totalPatients, compliance:{ testName -> { test, passedCount, percentage } } }
+• 	GET /comorbidity-patterns -> Mono<List<Map<String,Object>>> each: pair (string "AB"), count
+• 	GET /rank-by-count -> Flux<Map<String,Object>> { disease, patientCount }
+4. 	TestQueryController (/api/tests)
+• 	GET /{testName}/patients -> Flux<Map<String,Object>> { patientId, count }
+• 	GET /{testName}/utilization?start={ISO}&end={ISO} -> Mono<Map<String,Long>> mapping YearMonth string (yyyy-MM) to counts (preserve month ordering)
+• 	GET /{testName}/intervals -> Flux<Map<String,Object>> { patientId, countIntervals, medianDays, meanDays }
+• 	GET /{testName}/unusually-frequent?thresholdDays={long} -> Flux<Map<String,Object>> { patientId, daysBetween }
+• 	GET /low-usage?asOf={ISO optional} -> Flux<Map<String,Object>> { testName, recommendedMonths, distinctPatientsTested }
+5. 	UtilController (/api/util)
+• 	GET /overdue-alerts?asOf={ISO optional} -> Flux<Map<String,Object>>
+• 	POST /trend -> Flux<Map<String,Object>> accepts body with keys "testName","period","start","end"
+• 	POST /cohort-retention -> Flux<Map<String,Object>> accepts payload { cohortDefinition:{ disease }, testName, intervals }
+• 	GET /time-to-first-test?disease={}&testName={} -> Flux<Map<String,Object>>
+• 	GET /data-health?asOf={ISO optional}&sampleSize={int} -> Mono<Map<String,Object>> { missingFields, duplicates, implausibleDates }
+6. 	AnalyticsController (/api/analytics)
+• 	POST /feature-table -> Flux<Map<String,Object>> accepts payload { cohortDefinition?, windowMonths, features }
+• 	POST /survival-inputs -> Mono<Map<String,Object>>
+• 	POST /cluster -> Mono<Map<String,Object>>
+• 	POST /predict-missed-test -> Flux<Map<String,Object>>
+• 	POST /export-csv -> Mono<Map<String,Object>>
+7. 	ReportController (/api/report)
+• 	GET /kpis?asOf={ISO optional} -> Mono<Map<String,Object>> { testsPerPatientPerYear, percentMeetingBundle, asOf }
+8. 	ForecastController (/api/forecast)
+• 	POST /capacity -> Mono<Map<String,Object>> accepts { testName, horizonMonths, method } returns monthly forecast list
+9. 	ExportController (/api/export)
+• 	POST /patients -> Mono<Map<String,Object>> returns jobId and statusEndpoint
+10. 	AuditController (/api/audit)
+• 	GET /patient/{id}/trail -> Flux<Map<String,Object>> audit events sorted descending by timestamp
+Service behavior and constraints
+• 	Services must use only reactive repository calls and compose results reactively. No blocking of threads.
+• 	For aggregations that require scanning multiple tables, fetch reactive sequences and use collectList() then compute in-memory and return Flux.fromIterable or Mono of results.
+• 	Avoid ambiguous generics and use explicit Map<String,Object> where result maps have mixed value types. Construct such maps with new HashMap<>() and put(...) (avoid Map.of for mixed types including null).
+• 	Use consistent YearMonth string format "yyyy-MM" when returning monthly keys.
+• 	Ensure deterministic ordering where controllers return lists or Flux: when a natural order is required, sort explicitly (e.g., by count desc or month asc).
+• 	All date/time use UTC; parse and format Instants consistently. Use ZoneOffset.UTC for conversions.
+Edge cases and heuristics (follow these rules)
+• 	diseaseCompliance: when required test list is empty or totalPatients==0, return empty compliance map.
+• 	patientsOverdueForTest: if a patient has no prior test record for the requested test, mark overdue true and lastTestDate null, dueDate null.
+• 	mostRecentTestForPatient: if no tests, return map with mostRecent = null (or testName and testDate absent).
+• 	timeToFirstTest: diagnosis date is not stored; use earliest testDate in patient history as a best-effort diagnosis proxy.
+• 	cohort-retention: compute retained patient counts per interval as distinct patients who had at least one record for the specified test within the interval window.
+• 	data-health: sample up to sampleSize records for "missing fields"; find duplicates by grouping by patientIdtestNametestDate; implausibleDates = testDate after asOf.
+DTO and response shapes
+• 	Controllers may return domain entities directly in JSON where appropriate.
+• 	When returning Map<String,Object> ensure keys and types match functional description above.
+• 	Do not serialize Instant in a non-ISO format: default Jackson Instant serializer is acceptable if application.yml sets default timezone to UTC.
+Configuration and application.yml
+• 	Provide R2DBC configuration with properties for Testcontainers and local run:
+• 	spring.r2dbc.url
+• 	spring.r2dbc.username
+• 	spring.r2dbc.password
+• 	spring.sql.init.platform=postgres
+• 	spring.sql.init.mode=always (or configure schema initialization programmatically in tests)
+• 	Configure Jackson to write dates as ISO instants (spring.jackson.serialization.write-dates-as-timestamps=false)
+• 	Disable blocking detection in tests only if necessary, but aim to keep non-blocking.
+Testing (unit + integration)
+• 	Unit tests using JUnit 5 + Reactor Test for key service methods (AnalyticsService.buildFeatureTable, UtilService.generateOverdueAlerts, TestQueryService.utilizationOverTime).
+• 	Integration tests using Testcontainers Postgres:
+• 	Start Postgres container
+• 	Apply schema.sql
+• 	Seed sample patients, medical_tests, patient_test_history, patient_diseases
+• 	Hit several endpoints (e.g., /api/test, /api/patients/coverage, /api/tests/{name}/utilization) and assert response shapes and values using WebTestClient.
+• 	Use StepVerifier for reactive assertions when needed.
+Coding style and safety
+• 	Use Lombok (or explicit constructors/getters) for entity classes.
+• 	Use constructor injection for controllers and services.
+• 	Handle nulls defensively and return empty lists/maps where appropriate rather than null.
+• 	Avoid method references in places where generic inference may fail; prefer explicit lambdas if necessary.
+• 	Use Map<String,Object> built via HashMap + put when values have mixed types or nulls to avoid Map.of type inference issues.
+• 	Add JavaDoc on public service methods explaining reactive contract and expected output.
+README
+• 	Provide steps to build, run, and test locally (mvn clean package, mvn spring-boot:run, curl examples).
+• 	Show sample curl commands for each important endpoint and example request payloads for POST endpoints.
+CI (optional)
+• 	Provide GitHub Actions workflow that:
+• 	Runs mvn -DskipTests=false clean verify using Testcontainers for Postgres
+• 	Fails on compilation and test errors
+Non-functional requirements
+• 	Keep methods short and testable. Break complex logic into private helpers where appropriate.
+• 	Ensure performance: avoid collecting whole DB tables into memory for large datasets in production; however for this exercise some collectList() for aggregation is acceptable in services that document it.
+• 	Ensure code compiles and passes the integration tests in the repo you produce.
+Additional notes for the implementing Agent
+• 	Use the controllers, service method names, and repository interfaces exactly as specified so external MCP tools that call these endpoints can integrate without code changes.
+• 	When returning Flux/Mono, ensure the type signatures in controller methods match the service return types exactly.
+• 	Where an endpoint returns a list packaged inside a Mono (e.g., Mono<List<Map<String,Object>>>), implement that contract explicitly.
+• 	When constructing maps for JSON responses, prefer explicit HashMap construction and putting values (avoid Map.of for mixed/value-null maps).
+• 	Provide a minimal set of sample seed data inserted in integration test setup so tests verify non-empty results.
+Output expected from Agent
+• 	A zip or repository tree of the complete Maven project implementing everything above.
+• 	README.md at project root with build/run/test instructions and curl examples.
+• 	At least three integration tests using Testcontainers demonstrating the app works end-to-end.
+End of prompt.

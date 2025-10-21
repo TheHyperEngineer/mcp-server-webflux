@@ -1,0 +1,150 @@
+1) Test prompts — one prompt per tool (use these to test each tool directly)
+Use the following plain-English prompts to test each registered tool. Replace bracketed placeholders with real values (UUIDs, ISO timestamps, test names, etc.) when running.
+• 	patient.countTests
+Prompt: "Return the total number of tests performed for patient 8a1b2c3d-1111-2222-3333-444455556666."
+• 	patient.listTests
+Prompt: "Show the test history for patient 8a1b2c3d-1111-2222-3333-444455556666, newest first, page 0 size 50."
+• 	patient.profileWithDiseasesAndHistory
+Prompt: "Get the patient profile including diagnosed diseases and full test history for 8a1b2c3d-1111-2222-3333-444455556666."
+• 	patient.noTestsSince
+Prompt: "List patients who have had no tests since 2025-09-01T00:00:00Z."
+• 	patient.mostRecentTest
+Prompt: "What is the most recent test and date for patient 8a1b2c3d-1111-2222-3333-444455556666?"
+• 	patient.overdueForTest
+Prompt: "List patients overdue for HbA1c as of 2025-10-01T00:00:00Z."
+• 	patient.byDiseaseCount
+Prompt: "Return two lists: patients with exactly one diagnosed disease and patients with multiple diseases."
+• 	patient.diseaseTestMix
+Prompt: "Find patients diagnosed with Type 2 Diabetes who have at least one of these tests: HbA1c,Lipid Panel."
+• 	patient.coverage
+Prompt: "What percent of patients have at least one test?"
+• 	disease.listPatients
+Prompt: "Return all patients diagnosed with Type 2 Diabetes."
+• 	disease.distribution
+Prompt: "Provide the disease distribution (count and percentage for each disease)."
+• 	disease.compliance
+Prompt: "For disease Type 2 Diabetes, return required tests and the percent of patients compliant as of 2025-10-01T00:00:00Z."
+• 	disease.comorbidityPatterns
+Prompt: "List pairs of diseases that commonly co-occur and their counts."
+• 	disease.rankByPatientCount
+Prompt: "Rank diseases by number of patients, showing the top 10."
+• 	test.patientsReceiving
+Prompt: "For test HbA1c, list patients who have ever received it and counts per patient."
+• 	test.utilizationMonthly
+Prompt: "Return monthly counts for test HbA1c between 2025-01-01T00:00:00Z and 2025-10-01T00:00:00Z."
+• 	test.intervalsBetween
+Prompt: "For test HbA1c, compute per-patient median and mean days between tests."
+• 	test.lowUsage
+Prompt: "Identify tests with low usage as of 2025-10-01T00:00:00Z."
+• 	test.unusuallyFrequent
+Prompt: "Flag patients who had HbA1c repeated within 14 days."
+• 	util.overdueAlerts
+Prompt: "Generate active alerts for patients overdue for recommended tests as of 2025-10-01T00:00:00Z."
+• 	util.trendByPeriod
+Prompt: "Compute monthly trend for HbA1c between 2025-01-01 and 2025-10-01."
+• 	util.cohortRetention
+Prompt: "For cohort {disease: 'Type 2 Diabetes'}, compute retention at intervals [3,6,12] months for HbA1c."
+• 	util.timeToFirstTest
+Prompt: "For disease Type 2 Diabetes and test HbA1c, list days from diagnosis to first test for each patient."
+• 	util.dataHealthReport
+Prompt: "Produce a data quality report (missing fields, referential integrity, duplicates) as of 2025-10-01T00:00:00Z."
+• 	analytics.buildFeatureTable
+Prompt: "Build an ML feature table for cohort {disease:'Hypertension'} over the last 12 months including features ['lipid_count_12m','days_since_last_lipid']."
+• 	analytics.survivalInputs
+Prompt: "Prepare survival model inputs for cohort {disease:'Type 2 Diabetes'} and outcome {event:'first_complication'} censored at 2025-10-01."
+• 	analytics.clusterPatients
+Prompt: "Cluster patients in cohort {disease:'Hypertension'} using features ['test_count_12m','num_comorbidities'] and k=4."
+• 	analytics.predictMissedTest
+Prompt: "Given model 'default-miss-model', score patients in {cohort:'Type 2 Diabetes'} for probability of missing the next HbA1c."
+• 	analytics.exportCsvForCohort
+Prompt: "Export cohort {disease:'Type 2 Diabetes'} with columns ['id','name','last_hba1c_date'] as CSV and return a job id or URL."
+• 	report.kpis
+Prompt: "Compute dashboard KPIs as of 2025-10-01: tests per patient per year and percent meeting care bundles."
+• 	audit.patientAuditTrail
+Prompt: "Provide the audit trail of test events and compliance decisions for patient 8a1b2c3d-1111-2222-3333-444455556666 since 2025-01-01."
+• 	health.detectMalformedRecords
+Prompt: "Detect records with missing or malformed fields; sample size 100."
+• 	health.findDuplicates
+Prompt: "Find duplicate test entries up to 100 rows."
+• 	forecast.capacityByTest
+Prompt: "Forecast monthly capacity for HbA1c over next 6 months using trend method."
+• 	export.patientList
+Prompt: "Export patient list filtered by {disease:'Type 2 Diabetes'} with columns ['id','name','email'] and return job id."
+
+
+
+curl -sS "http://localhost:8080/api/util/data-health?asOf=2025-10-21T00:00:00Z&sampleSize=50" | jq .
+
+Below are 15 ready-to-use MCP Client prompts you can paste into your agent prompt template. Each prompt tells the MCP client exactly which upstream API to call, which parameters to send, and what output to return. The first 10 are single-tool prompts (one API / one controller). The last 5 are multi-tool workflows that call several APIs in sequence and combine results.
+
+Single-tool MCP prompts (one API per controller)
+1. 	TestController — health check
+Prompt: Call HTTP GET /api/test. Return the raw response body and HTTP status.
+Description: Quick liveness check for the service.
+2. 	PatientQueryController — count tests for patient
+Prompt: Call HTTP GET /api/patients/{id}/tests/count with path parameter id set to the provided UUID. Return a JSON object { "patientId": "<id>", "testCount": <number>, "status": <http-status> }.
+Description: Verify patient test-count API and return a structured result.
+3. 	DiseaseQueryController — disease distribution
+Prompt: Call HTTP GET /api/diseases/distribution. Return the full JSON array. Also compute and return the top 3 diseases by count as additional keys top3 and top3Counts.
+Description: Retrieve disease frequency distribution and highlight top results.
+4. 	TestQueryController — patients for a test
+Prompt: Call HTTP GET /api/tests/{testName}/patients with path parameter testName set to the provided test name (URL-encode). Return the list and the total number of unique patients as { "testName": "<testName>", "patients": [...], "distinctCount": N }.
+Description: Get every patient who ever received a specific test and counts per patient.
+5. 	UtilController — overdue alerts snapshot
+Prompt: Call HTTP GET /api/util/overdue-alerts?asOf={ISO} where ISO is the provided UTC timestamp. Filter returned items to overdue=true and return only fields testName, patientId, lastTestDate, dueDate. Also provide count of overdue items.
+Description: Produce a concise overdue list for alerts/outreach.
+6. 	AnalyticsController — feature table sample
+Prompt: Call HTTP POST /api/analytics/feature-table with JSON body {"windowMonths":6,"features":["HbA1c_count_6m","days_since_last_HbA1c"]}. Return first 10 rows and the total rows returned by the endpoint.
+Description: Generate a small ML feature table sample for validation.
+7. 	ReportController — KPIs snapshot
+Prompt: Call HTTP GET /api/report/kpis?asOf={ISO} and return the resulting JSON unchanged. Additionally, compute an interpreted field testsPerPatientPerYearRounded = round(testsPerPatientPerYear,2).
+Description: Obtain KPI metrics for dashboards and summarize.
+8. 	AuditController — patient audit trail
+Prompt: Call HTTP GET /api/audit/patient/{id}/trail with path patient id. Return up to 25 most recent audit events sorted descending by timestamp, preserving all event details.
+Description: Retrieve ordered audit events for a patient for compliance review.
+9. 	ForecastController — capacity forecast for test
+Prompt: Call HTTP POST /api/forecast/capacity with body {"testName":"<testName>","horizonMonths":6,"method":"linear"}. Return monthlyForecast array and also return the next 3 months projected totals aggregated.
+Description: Project future test capacity for planning.
+10. 	ExportController — request patient export job
+Prompt: Call HTTP POST /api/export/patients with body {"filters":{"disease":"<diseaseName>"},"columns":["id","name","contact"]}. Return the jobId, statusEndpoint, and HTTP status.
+Description: Start an export job for outreach lists and capture job metadata.
+
+Multi-tool MCP workflow prompts (call multiple APIs in order)
+11. 	Overdue cohort → export (sequential tools)
+Prompt:
+• 	Step 1: Call GET /api/patients/overdue-for-test?testName=HbA1c&asOf={ISO}. Collect patientIds where overdue=true.
+• 	Step 2: If no overdue patients, return { "overdueCount": 0 }. Otherwise call POST /api/export/patients with body {"filters":{"patientIds":[...collected ids...]}, "columns":["id","name","contact"]}. Return { "overdueCount": N, "exportJob": { jobId, statusEndpoint } }.
+Description: Identify overdue patients for HbA1c and schedule an export job for outreach.
+12. 	Cohort retention → features → predict (chained analytics)
+Prompt:
+• 	Step 1: Call POST /api/util/cohort-retention with {"cohortDefinition":{"disease":"Type 2 Diabetes"},"testName":"HbA1c","intervals":[3,6,12]}. Save retention summary.
+• 	Step 2: Call POST /api/analytics/feature-table with {"cohortDefinition":{"disease":"Type 2 Diabetes"},"windowMonths":12,"features":["HbA1c_count_12m","days_since_last_HbA1c"]}. Collect patientIds returned in first 500 rows.
+• 	Step 3: Call POST /api/analytics/predict-missed-test with {"patientSubset": {"patientIds": [collected ids]}}. Return top 100 patients by probability and include the retention summary from step 1.
+Description: End-to-end pipeline from retention metrics to risk scoring for actionable outreach.
+13. 	Data-health → dedupe plan → simulate dedupe (inspection workflow)
+Prompt:
+• 	Step 1: Call GET /api/util/data-health?asOf={ISO}&sampleSize=200. Extract duplicates list.
+• 	Step 2: Build a dedupe plan mapping each duplicate key to its example record ids (choose up to 3 ids per key). Return the dedupe plan.
+• 	Step 3: Simulate dedupe by returning a preview of what would be removed and the counts; do not call any delete or update API. Return before/after counts estimated.
+Description: Detect duplicates and produce a safe, non-destructive deduplication plan.
+14. 	Feature engineering → clustering → export clusters
+Prompt:
+• 	Step 1: Call POST /api/analytics/feature-table with {"windowMonths":12,"features":["HbA1c_count_12m","Lipid Panel_count_12m","days_since_last_HbA1c"]} and collect features for top 1000 patients.
+• 	Step 2: Call POST /api/analytics/cluster with {"features":"use returned rows","k":5}. Receive cluster assignments.
+• 	Step 3: Call POST /api/export/patients with {"filters":{"clusterIds":[...unique clusters...]}, "columns":["id","name","cluster"]}. Return cluster counts and export job metadata.
+Description: Create clusters for a cohort and request an export of cluster assignments for operational use.
+15. 	KPI-driven forecasting loop (inspect and forecast top test)
+Prompt:
+• 	Step 1: Call GET /api/report/kpis?asOf={ISO}. Capture summary metrics.
+• 	Step 2: Call GET /api/tests/low-usage?asOf={ISO} and GET /api/tests/{testName}/patients for each returned low-usage test to compute distinct patient counts. Identify the test with highest usage (or fallback to "HbA1c").
+• 	Step 3: Call POST /api/forecast/capacity with {"testName": "<selected>", "horizonMonths": 6, "method": "linear"} and return forecast plus the KPI summary.
+Description: Use KPIs and test usage to select a test to forecast capacity for planning.
+
+Usage recommendations for MCP client
+• 	Always URL-encode path and query parameters (test names, disease names).
+• 	Provide ISO instants in UTC for asOf parameters (e.g., 2025-10-21T00:00:00Z).
+• 	For each prompt, instruct the agent to return structured JSON results only (no debug text) to make downstream automation deterministic.
+• 	For long-running export jobs, store returned statusEndpoint and poll it externally; these prompts only create jobs and return metadata.
+• 	When collecting patientIds from endpoints, de-duplicate before passing to export or prediction APIs.
+
+Use these MCP client prompts directly in your tool-driven workflows or automation harness to test tools, compose multi-step flows, and drive operational tasks.

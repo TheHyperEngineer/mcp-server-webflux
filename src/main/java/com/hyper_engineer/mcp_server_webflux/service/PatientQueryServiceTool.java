@@ -20,7 +20,7 @@ public class PatientQueryServiceTool {
     }
 
     @Tool(
-            name = "testTestTool",
+            name = "testTool",
             description = "A test tool to verify tool integration.")
     public String testTool() {
         return this.webClient.get()
